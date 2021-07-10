@@ -17,12 +17,6 @@ server <- function(input, output, session) {
 
   #Maps of NPower Graduates
   
-  #BASIC SETTINGS
-  opacity <- 0.5
-  rad     <- 3
-  outercolor <- "white"
-  innercolor <- "black"
-  
   #DROPDOWN FOR GEOGRAPHY TYPE
   output$geography <- renderUI({
     
@@ -71,18 +65,56 @@ server <- function(input, output, session) {
   })
   
   #BASIC MAP SETUP. THIS IS THEN MANIPULATED BY EACH DROPDOWN 
+  
+  #BASIC SETTINGS
+  opacity <- 0.5
+  rad     <- 3
+  outercolor <- "white"
+  innercolor <- "black"
+  
+  #FUNCTION TO CREATE MARKERS
+  mapmarkers <- function(MAP,DATA){
+    MAP %>% 
+    addCircleMarkers(lng = DATA$lon,lat = DATA$lat, 
+                     popup = DATA$Year,
+                     fillOpacity = 1,
+                     radius = rad,
+                     weight = 1,
+                     options = leafletOptions(pane = "points"),
+                     color = outercolor,
+                     fillColor = innercolor)
+  }
+  
+  mapshapes <- function(MAP,DATA,PAL){
+    MAP %>% 
+        clearShapes() %>% 
+    addPolygons(data = DATA %>%
+                  st_transform(crs = "+init=epsg:4326"),
+                popup = ~ paste("Geography: ", NAME,". Value: ",estimate),
+                stroke = FALSE,
+                smoothFactor = 1,
+                weight = 1,
+                fillOpacity = 0.5,
+                color = ~ PAL(estimate),
+                options = leafletOptions(pane = "polygons"))
+    }
+  
+  maplegend <- function(MAP,DATA,PAL){
+    MAP %>% 
+    clearControls() %>%
+    addLegend("bottomright", 
+              pal = PAL, 
+              values = DATA$estimate,
+              title = "Selected Overlay Values",
+              opacity = opacity)
+  }
+  
   output$myMap <- renderLeaflet({
     leaflet(width = "100%") %>%
       addMapPane("polygons",zIndex = 410) %>%
       addMapPane("points",zIndex = 440) %>%
       addProviderTiles(provider = "CartoDB.Positron") %>%
-      addCircleMarkers(lng = npower$lon,lat = npower$lat, popup = npower$Year,
-                       fillOpacity = 1,
-                       radius = rad,
-                       weight = 1,
-                       options = leafletOptions(pane = "points"),
-                       color = outercolor,
-                       fillColor = innercolor)
+      mapmarkers(.,npower)
   })
   
   #MODIFIES THE LAYER REPRESENTED ON THE MAP BASED ON THE DEMOGRAPHIC BUTTON
@@ -130,22 +162,8 @@ server <- function(input, output, session) {
     pal <- colorNumeric(palette = "viridis", domain = md$estimate)
     
     leafletProxy("myMap") %>%
-      clearShapes() %>% 
-      clearControls() %>%
-      addPolygons(data = md %>%
-                    st_transform(crs = "+init=epsg:4326"),
-                  popup = ~ paste("Geography: ", NAME,". Value: ",estimate),
-                  stroke = FALSE,
-                  smoothFactor = 1,
-                  weight = 1,
-                  fillOpacity = 0.5,
-                  color = ~ pal(estimate),
-                  options = leafletOptions(pane = "polygons")) %>%
-      addLegend("bottomright", 
-                pal = pal, 
-                values = md$estimate,
-                title = "Selected Overlay Values",
-                opacity = opacity)
+      mapshapes(.,md,pal) %>%
+      maplegend(.,md,pal)
   })
   
   #MODIFIES THE LAYER REPRESENTED BY THE GEOGRAPHIC LAYER SELECTED
@@ -193,22 +211,8 @@ server <- function(input, output, session) {
     pal <- colorNumeric(palette = "viridis", domain = md$estimate)
     
     leafletProxy("myMap") %>%
-      clearControls() %>%
-      clearShapes() %>% 
-      addPolygons(data = md %>%
-                    st_transform(crs = "+init=epsg:4326"),
-                  popup = ~ paste("Geography: ", NAME,". Value: ",estimate),
-                  stroke = FALSE,
-                  smoothFactor = 1,
-                  weight = 1,
-                  fillOpacity = 0.5,
-                  color = ~ pal(estimate),
-                  options = leafletOptions(pane = "polygons")) %>%
-      addLegend("bottomright", 
-                pal = pal, 
-                values = md$estimate,
-                title = "Selected Overlay Values",
-                opacity = opacity)
+      mapshapes(.,md,pal) %>% 
+      maplegend(.,md,pal)
   })
   
   #FILTERS THE ENROLLES REPRESENTED ON THE MAP BY YEAR
@@ -223,25 +227,11 @@ server <- function(input, output, session) {
       npower <- npower %>% filter(`Race/Ethnicity` == input$race)}
     ifelse(YEAR == "All",{
       leafletProxy("myMap") %>%
-        addCircleMarkers(lng = npower$lon,lat = npower$lat, 
-                         popup = npower$Year,
-                         fillOpacity = 1,
-                         radius = rad,
-                         weight = 1,
-                         options = leafletOptions(pane = "points"),
-                         color = outercolor,
-                         fillColor = innercolor
-        )
+        mapmarkers(.,npower)
     },{filtyear <- npower %>% filter(Year == YEAR)
     leafletProxy("myMap") %>%
       clearMarkers() %>%
-      addCircleMarkers(lng = filtyear$lon,lat = filtyear$lat, 
-                       fillOpacity = 1,
-                       radius = rad,
-                       weight = 1,
-                       options = leafletOptions(pane = "points"),
-                       color = outercolor,
-                       fillColor = innercolor)})
+      mapmarkers(.,filtyear)})
   })
   
   #FILTERS THE ENROLLES REPRESENTED ON THE MAP BY RACE/ETHNICITY  
@@ -256,24 +246,11 @@ server <- function(input, output, session) {
       npower <- npower %>% filter(Year == YEAR)}
     ifelse(RACE == "All",{
       leafletProxy("myMap") %>%
-        addCircleMarkers(lng = npower$lon,lat = npower$lat, 
-                         fillOpacity = 1,
-                         radius = rad,
-                         weight = 1,
-                         options = leafletOptions(pane = "points"),
-                         color = outercolor,
-                         fillColor = innercolor
-        )
+        mapmarkers(.,npower)
     },{filtrace <- npower %>% filter(`Race/Ethnicity` == RACE)
     leafletProxy("myMap") %>%
       clearMarkers() %>%
-      addCircleMarkers(lng = filtrace$lon,lat = filtrace$lat, 
-                       fillOpacity = 1,
-                       radius = rad,
-                       weight = 1,
-                       options = leafletOptions(pane = "points"),
-                       color = outercolor,
-                       fillColor = innercolor)})
+      mapmarkers(.,filtrace)})
   })
   
   #FILTERS THE ENROLLES REPRESENTED ON THE MAP BY GENDER
@@ -288,24 +265,11 @@ server <- function(input, output, session) {
       npower <- npower %>% filter(`Race/Ethnicity` == input$race)}
     ifelse(GEND == "All",
            {leafletProxy("myMap") %>%
-               addCircleMarkers(lng = npower$lon,lat = npower$lat, 
-                                fillOpacity = 1,
-                                radius = rad,
-                                weight = 1,
-                                options = leafletOptions(pane = "points"),
-                                color = outercolor,
-                                fillColor = innercolor
-               )},{filtgend <- npower %>% filter(`Gender Identity` == GEND)
+               mapmarkers(.,npower)},
+           {filtgend <- npower %>% filter(`Gender Identity` == GEND)
                leafletProxy("myMap") %>%
                  clearMarkers() %>%
-                 addCircleMarkers(lng = filtgend$lon,lat = filtgend$lat, 
-                                  popup = filtgend$Year,
-                                  fillOpacity = 1,
-                                  radius = rad,
-                                  weight = 1,
-                                  options = leafletOptions(pane = "points"),
-                                  color = outercolor,
-                                  fillColor = innercolor)})
+                 mapmarkers(.,filtgend)})
   })
 
   #HISTOGRAMS AND PIE CHARTS
@@ -367,6 +331,20 @@ server <- function(input, output, session) {
       
     })
     
+    #PLOT FORMATTING
+    plotformat <- function(DATA,PLOT){
+      ggplot(DATA,aes(x = 2,
+                   y = Count, 
+                   fill = PLOT)) +
+        geom_bar(width = 1,stat = "identity",color = "white") +
+        coord_polar("y", start = 0)+
+        theme_void()+
+        xlim(0.5, 2.5)+ 
+        theme(text = element_text(size = 16))  +
+        theme(legend.direction = "vertical",legend.position="bottom") +
+        scale_fill_brewer(palette="Dark2")
+    }
+    
     #PLOT OF RACE/ETHNICITY
     output$plot1 <- renderPlot({
       
@@ -388,16 +366,7 @@ server <- function(input, output, session) {
       npower %>%
         group_by(`Race/Ethnicity`) %>% 
         summarise(Count = sum(`Contact Count`)) %>% 
-        ggplot(.,aes(x = 2,
-                     y = Count, 
-                     fill = `Race/Ethnicity`)) +
-        geom_bar(width = 1,stat = "identity",color = "white") +
-        coord_polar("y", start = 0)+
-        theme_void()+
-        xlim(0.5, 2.5)+ 
-        theme(text = element_text(size = 16))  +
-        theme(legend.direction = "vertical",legend.position="bottom") +
-        scale_fill_brewer(palette="Dark2")}
+        plotformat(.,.$`Race/Ethnicity`)}
       
       
     })
@@ -423,16 +392,7 @@ server <- function(input, output, session) {
       npower %>%
         group_by(`Gender Identity`) %>% 
         summarise(Count = sum(`Contact Count`)) %>% 
-        ggplot(.,aes(x = 2,
-                     y = Count, 
-                     fill = `Gender Identity`)) +
-        geom_bar(stat = "identity",width = 1,color = "white") +
-        coord_polar("y", start = 0) +
-        theme_void()+
-        xlim(0.5, 2.5)+ 
-        theme(legend.direction = "vertical",legend.position="bottom") +
-        theme(text = element_text(size = 16))  +
-        scale_fill_brewer(palette="Dark2")}
+        plotformat(.,.$`Gender Identity`)}
       
     })
     
@@ -453,37 +413,18 @@ server <- function(input, output, session) {
       if(YEAR1 != 'All'){
         npower <- npower %>% filter(Year == YEAR1)}
       if(nrow(npower)>8){
-        
       npower %>%
         group_by(`County`) %>% 
         summarise(Count = sum(`Contact Count`)) %>% 
         mutate(County1 = ifelse(Count>8,County,"Other")) %>% 
         group_by(County = County1) %>% 
         summarise(Count = sum(Count)) %>% 
-        ggplot(.,aes(x = 2,
-                     y = Count, 
-                     fill = County)) +
-        geom_bar(stat = "identity",width = 1,color = "white") +
-        coord_polar("y", start = 0) +
-        theme_void()+
-        xlim(0.5, 2.5)+ 
-        theme(text = element_text(size = 16))  +
-        theme(legend.direction = "vertical",legend.position="bottom") +
-        scale_fill_brewer(palette="Dark2")}else{
+        plotformat(.,.$County)}else{
           if(nrow(npower)>0){
           npower %>%
             group_by(`County`) %>% 
             summarise(Count = sum(`Contact Count`)) %>% 
-            ggplot(.,aes(x = 2,
-                         y = Count, 
-                         fill = County)) +
-            geom_bar(stat = "identity",width = 1,color = "white") +
-            coord_polar("y", start = 0) +
-            theme_void()+
-            xlim(0.5, 2.5)+ 
-            theme(text = element_text(size = 16))  +
-            theme(legend.direction = "vertical",legend.position="bottom") +
-            scale_fill_brewer(palette="Dark2")
+              plotformat(.,.$County)
           
         }}
       
