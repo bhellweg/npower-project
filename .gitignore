@@ -34,3 +34,7 @@ vignettes/*.pdf
 
 # Shiny token, see https://shiny.rstudio.com/articles/shinyapps.html
 rsconnect/
+
+npower_map.csv
+npower-data.xlsx
+dataclean.R
